@@ -1,0 +1,70 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+        
+    - name: 📋 Flutter doctor
+      run: flutter doctor -v
+      
+    - name: 🔌 Enable Windows desktop
+      run: flutter config --enable-windows-desktop
+      
+    - name: 📦 Get dependencies
+      working-directory: ./app
+      run: flutter pub get
+      
+    - name: 🔨 Build Windows app
+      working-directory: ./app
+      run: flutter build windows --release
+      
+    - name: 📁 Create release package
+      working-directory: ./app
+      run: |
+        mkdir release-package
+        xcopy "build\windows\x64\runner\Release\*" "release-package\" /E /I /H /Y
+        
+    - name: 📊 Get build info
+      working-directory: ./app
+      run: |
+        $exePath = "build\windows\x64\runner\Release\tpcg_collection_record.exe"
+        if (Test-Path $exePath) {
+          $fileSize = (Get-Item $exePath).Length
+          $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+          Write-Host "Build successful! Size: $fileSizeMB MB"
+        }
+      shell: pwsh
+      
+    - name: 📤 Upload Windows build
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-app-${{ github.sha }}
+        path: ./app/release-package/
+        retention-days: 30
+        
+    - name: 📤 Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs-${{ github.sha }}
+        path: |
+          ./app/build/
+          !./app/build/windows/x64/runner/Release/
+        retention-days: 7

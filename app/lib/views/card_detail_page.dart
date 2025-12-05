@@ -33,6 +33,21 @@ class _CardDetailPageState extends State<CardDetailPage> {
     });
   }
 
+  /// 显示全屏图片预览
+  void _showFullScreenImage(
+      BuildContext context, String imagePath, String title) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => FullScreenImageViewer(
+          imagePath: imagePath,
+          title: title,
+          cardName: card!.name,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -124,51 +139,71 @@ class _CardDetailPageState extends State<CardDetailPage> {
   }
 
   Widget _buildImageCard(String title, String imagePath) {
-    return Stack(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: double.infinity,
-          child: Image.file(
-            File(imagePath),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[100],
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text('图片加载失败', style: TextStyle(color: Colors.grey)),
-                    ],
+    return GestureDetector(
+      onTap: () => _showFullScreenImage(context, imagePath, title),
+      child: Stack(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: double.infinity,
+            child: Image.file(
+              File(imagePath),
+              fit: BoxFit.fitHeight,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[100],
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('图片加载失败', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-        ),
-        Positioned(
-          bottom: 16,
-          left: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(16),
+                );
+              },
             ),
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+          ),
+          Positioned(
+            bottom: 16,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+          // 添加点击提示图标
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.zoom_in,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -505,6 +540,128 @@ class _CardDetailPageState extends State<CardDetailPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 全屏图片查看器
+class FullScreenImageViewer extends StatefulWidget {
+  final String imagePath;
+  final String title;
+  final String cardName;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imagePath,
+    required this.title,
+    required this.cardName,
+  });
+
+  @override
+  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+  bool _showAppBar = true;
+  final TransformationController _transformationController =
+      TransformationController();
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleAppBar() {
+    setState(() {
+      _showAppBar = !_showAppBar;
+    });
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: _showAppBar
+          ? AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.cardName,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.black87,
+              foregroundColor: Colors.white,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _resetZoom,
+                  tooltip: '重置缩放',
+                ),
+              ],
+            )
+          : null,
+      body: GestureDetector(
+        onTap: _toggleAppBar,
+        child: Center(
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 0.5,
+            maxScale: 5.0,
+            child: Image.file(
+              File(widget.imagePath),
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.grey[900],
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          '图片加载失败',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+      // floatingActionButton: _showAppBar
+      //     ? FloatingActionButton(
+      //         onPressed: _resetZoom,
+      //         backgroundColor: Colors.white.withValues(alpha: 0.9),
+      //         foregroundColor: Colors.black,
+      //         mini: true,
+      //         child: const Icon(Icons.center_focus_strong),
+      //       )
+      //     : null,
     );
   }
 }

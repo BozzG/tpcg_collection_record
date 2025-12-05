@@ -16,7 +16,8 @@ class DatabaseService {
 
   Future<Database> initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, 'tpcg_collection_test.db');
+    String path =
+        join(documentsDirectory.path, 'tpcg_collection_production.db');
 
     return await openDatabase(
       path,
