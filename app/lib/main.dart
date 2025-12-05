@@ -1,47 +1,70 @@
 import 'package:flutter/material.dart';
-import 'package:logging/logging.dart';
-import 'routing/app_router.dart';
-import 'core/di/service_locator.dart';
-import 'core/services/image_service.dart';
+import 'package:provider/provider.dart';
+import 'package:tpcg_collection_record/services/database_service.dart';
+import 'package:tpcg_collection_record/viewmodels/home_viewmodel.dart';
+import 'package:tpcg_collection_record/viewmodels/card_viewmodel.dart';
+import 'package:tpcg_collection_record/viewmodels/project_viewmodel.dart';
+import 'package:tpcg_collection_record/views/home_page.dart';
+import 'package:tpcg_collection_record/utils/logger.dart';
 
 void main() async {
-  // 确保 Flutter 绑定已初始化
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 设置日志级别
-  Logger.root.level = Level.ALL;
+  // Initialize logging
+  Log.info('应用启动中...');
 
-  // 初始化依赖注入
-  await initializeDependencies();
-  
-  // 初始化图片服务
-  await ImageService.initialize();
+  try {
+    // Initialize database
+    Log.info('初始化数据库...');
+    final databaseService = DatabaseService();
+    await databaseService.initDatabase();
+    Log.info('数据库初始化完成');
 
-  runApp(const MyApp());
+    runApp(MyApp(databaseService: databaseService));
+  } catch (e, stackTrace) {
+    Log.fatal('应用启动失败', e, stackTrace);
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final DatabaseService databaseService;
+
+  const MyApp({super.key, required this.databaseService});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TPCG Collection Record',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
+    Log.info('构建应用主界面');
+
+    return MultiProvider(
+      providers: [
+        Provider<DatabaseService>.value(value: databaseService),
+        ChangeNotifierProvider(
+          create: (context) => HomeViewModel(databaseService),
         ),
-        useMaterial3: true,
+        ChangeNotifierProvider(
+          create: (context) => CardViewModel(databaseService),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => ProjectViewModel(databaseService),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'TPCG Collection Record',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        darkTheme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.indigoAccent,
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+        ),
+        themeMode: ThemeMode.system,
+        home: const HomePage(),
       ),
-      themeMode: ThemeMode.system,
-      onGenerateRoute: AppRouter.generateRoute,
-      initialRoute: AppRouter.home,
-      debugShowCheckedModeBanner: false,
     );
   }
 }
